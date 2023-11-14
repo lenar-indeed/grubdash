@@ -5,8 +5,6 @@ const dishes = require(path.resolve("src/data/dishes-data"));
 // Use this function to assign ID's when necessary
 const nextId = require("../utils/nextId");
 
-// TODO: Implement the /dishes handlers needed to make the tests pass
-
 function list(req, res) {
     res.json({data: dishes});
 }
@@ -29,20 +27,25 @@ function read(req, res) {
 }
 
 function update(req, res, next) {
-    const dishId = req.params.dishId;
     const foundDish = res.locals.dish;
-  
-    const {id, name, description, image_url, price} = req.body.data;
+    const {name, description, image_url, price} = req.body.data;
 
-    if (id && id !== dishId) {
-        next({status: 400, message: `Dish id does not match route id. Dish: ${id}, Route: ${dishId}`});
-    }
     foundDish.name = name;
     foundDish.description = description;
     foundDish.price = price;
     foundDish.image_url = image_url;
     res.json({ data: foundDish });
-  }
+}
+
+function dishIdMatchRouteDishId(req, res, next) {
+    const dishId = req.params.dishId;
+    const {id} = req.body.data;
+
+    if (id && id !== dishId) {
+        next({status: 400, message: `Dish id does not match route id. Dish: ${id}, Route: ${dishId}`});
+    }
+    next();
+}
   
 function dataHas(propertyName) {
     return function (req, res, next) {
@@ -92,6 +95,7 @@ module.exports = {
         dataHas("description"),
         dataHas("price"),
         dataHas("image_url"),
+        dishIdMatchRouteDishId,
         validatePrice,
         update]
 };

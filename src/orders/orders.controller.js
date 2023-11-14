@@ -27,18 +27,11 @@ function read(req, res) {
     res.json({ data: res.locals.order });
 }
 
-function update(req, res, next) {
-    const orderId = req.params.orderId;
+function update(req, res) {
     const foundOrder = res.locals.order;
   
-    const {id, deliverTo, mobileNumber, status, dishes} = req.body.data;
+    const {deliverTo, mobileNumber, status, dishes} = req.body.data;
 
-    if (id && id !== orderId) {
-        next({status: 400, message: `Order id does not match route id. Order: ${id}, Route: ${orderId}.`});
-    }
-    if (foundOrder.status === "delivered") {
-        next({status: 400, message: "A delivered order cannot be changed"});
-    }
     foundOrder.deliverTo = deliverTo;
     foundOrder.mobileNumber = mobileNumber;
     foundOrder.status = status;
@@ -46,17 +39,38 @@ function update(req, res, next) {
     res.json({ data: foundOrder });
 }
 
-function remove(req, res, next) {
+function remove(req, res) {
+    orders.splice(res.locals.orderIndex, 1);
+    res.sendStatus(204);
+}
+
+function orderIdMatchRouteOrderId(req, res, next) {
+    const orderId = req.params.orderId;
+    const {id} = req.body.data;
+
+    if (id && id !== orderId) {
+        next({status: 400, message: `Order id does not match route id. Order: ${id}, Route: ${orderId}.`});
+    }
+    next();
+}
+
+function notDeliveredStatusForUpdate(req, res, next) {
+    const foundOrder = res.locals.order;
+    if (foundOrder.status === "delivered") {
+        next({status: 400, message: "A delivered order cannot be changed"});
+    }
+    next();
+}
+
+function pendingStatusForDeletion(req, res, next) {
     const { orderId } = req.params;
     const index = orders.findIndex((order) => order.id === orderId);
-    if (index > -1) {
-        if (orders[index].status !== "pending") {
-            next({status: 400, message: `An order cannot be deleted unless it is pending. Returns a 400 status code`});
-        }
-        orders.splice(index, 1);
-    }
-    res.sendStatus(204);
-  }
+    if (index > -1 && orders[index].status !== "pending") {
+        next({status: 400, message: `An order cannot be deleted unless it is pending. Returns a 400 status code`});
+    } 
+    res.locals.orderIndex;
+    next();
+}
 
 function dataHas(propertyName) {
     return function (req, res, next) {
@@ -120,10 +134,13 @@ module.exports = {
         validateStatus,
         validateDishes,
         orderExists,
+        orderIdMatchRouteOrderId,
+        notDeliveredStatusForUpdate,
         update
     ],
     delete: [
         orderExists,
+        pendingStatusForDeletion,
         remove
     ]
 };
